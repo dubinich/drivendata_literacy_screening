@@ -6,13 +6,18 @@ import torchaudio
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 from tqdm import tqdm
 
-DATA_PATH = "/mnt/c/Users/artem/Documents/Projects/drivendata_literacy/data"
+DATA_PATH = "data"
 AUDIO_PATH = DATA_PATH + "/audio"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 model_name = "vitouphy/wav2vec2-xls-r-300m-timit-phoneme"
 processor = Wav2Vec2Processor.from_pretrained(model_name)
 model = Wav2Vec2ForCTC.from_pretrained(model_name).to(DEVICE)
+
+WAV2VEC_FOLDER = os.path.join(DATA_PATH, "wav2vec2")
+os.makedirs(WAV2VEC_FOLDER, exist_ok=True)
+processor.save_pretrained(WAV2VEC_FOLDER)
+model.save_pretrained(WAV2VEC_FOLDER)
 
 
 def load_train_data(data_path: str) -> pd.DataFrame:
@@ -30,7 +35,7 @@ def load_audio(file_path):
 
 
 def preprocess_audio(waveform, sample_rate):
-    waveform = waveform / torch.max(torch.abs(waveform))  # Normalize
+    waveform = waveform / torch.max(torch.abs(waveform))
     inputs = processor(waveform, sampling_rate=sample_rate, return_tensors="pt", padding=True)
     return inputs.input_values.to(DEVICE)
 
@@ -59,11 +64,9 @@ def main():
         input_values = preprocess_audio(waveform, sample_rate)
         transcription = transcribe_audio(input_values)
 
-        # Add transcription to results
         row["extracted_phonemes"] = transcription
         results.append(row)
 
-    # Save updated metadata with phonemes
     output_csv = os.path.join(DATA_PATH, "train_metadata_with_phonemes.csv")
     updated_metadata = pd.DataFrame(results)
     updated_metadata.to_csv(output_csv, index=False)
